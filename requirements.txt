@@ -1,0 +1,7 @@
+connexion[flask,swagger-ui,uvicorn]
+flask_jwt_extended
+kazoo
+pandas
+pyarrow
+python-dotenv
+

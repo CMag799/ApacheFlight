@@ -1,0 +1,30 @@
+#FROM nexus3.systems.uj.xyz:18081/com/xyz/base-image:0.0.1
+FROM ubuntu:20.04 as base
+
+RUN apt-get update && apt-get install -y python3
+
+ARG GIT_USERNAME
+ARG GIT_PW
+ENV REQUESTS_CA_BUNDLE=""
+
+USER root
+ENV PATH="/venv/bin:$PATH"
+
+COPY requirements.txt /app/requirements.txt
+
+RUN python -m pip install --upgrade pip
+#RUN python -m pip install --no-cache-dir -r /app/requirements.txt
+
+COPY . /app/
+WORKDIR /app/
+
+RUN rm -R /certs
+
+RUN chown -R my_user /app/
+RUN chmod 755 /app/
+
+EXPOSE 8080
+
+USER my_user
+CMD ["python", "wsgi.py"]
+#CMD ["gunicorn", "--bind 0.0.0.0.:8080", "--log-level=debug", "wsgi:simpleapi"]

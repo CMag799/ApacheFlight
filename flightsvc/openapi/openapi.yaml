@@ -1,0 +1,44 @@
+openapi: 3.0.0
+servers:
+  - url: http://127.0.0.1:8080{basePath}
+    description: Flight service
+    variables:
+      basePath:
+        default: "/api/v1"
+info:
+  title: Basic Flight service
+  description: Basic api example
+  version: 0.0.1
+paths:
+  /instantiate_producers/:
+    get:
+      summary: Spins up flight producers.
+      operationId: flightsvc.controllers.multi_flight_producer.instantiate_producers
+      #      security:
+      #        - bearerAuth: [ ]
+      #        - jwt: ['secret']
+      responses:
+        '200':
+          description: OK
+  /flights/:
+    get:
+      summary: Returns a list of flights.
+      operationId: flightsvc.controllers.baseapi.get_flights
+#      security:
+#        - bearerAuth: [ ]
+#        - jwt: ['secret']
+      responses:
+          '200':
+            description: OK
+#            content:
+#              application/json:
+#              schema:
+#                  $ref: '#/components/schemas/Flights'
+#          '401':
+#            $ref: '#/components/responses/UnauthorizedError'
+#          default:
+#            description: Unexpected error
+#            content:
+#              application/json:
+#              schema:
+#                  $ref: '#/components/schemas/Error'

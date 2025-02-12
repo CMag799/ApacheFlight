@@ -1,0 +1,125 @@
+version: '3.5'
+
+x-common-variables: &common-variables
+  FLASK_ENV: "development"
+#  OPEN_ACCESS: ${OPEN_ACCESS}
+  OPEN_API: ${OPEN_API}
+#  HTTP_PROXY: ${HTTP_PROXY}
+#  NO_PROXY: ${NO_PROXY}
+  JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+  NUM_RETRIES: ${NUM_RETRIES}
+  BACKOFF_FACTOR: ${BACKOFF_FACTOR}
+
+services:
+  flight-svc:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        GIT_USERNAME: ${GIT_USERNAME}
+        GIT_PW: ${GIT_PW}
+#    image: nexus3.systems.uk.xyz:18081/com/xyz/flightsvc:latest
+    image: flightsvc:latest
+#    command: python wsgi.py
+    restart: "no"
+    environment:
+        <<: *common-variables
+        FLASK_APP: "flightsvc"
+        FLASK_DEBUG: "1"
+        ZOOKEEPER_HOST: "zoo1"
+        ZOOKEEPER_PORT: "2181"
+    depends_on:
+      - zoo1
+    networks:
+#      - testnet
+      - zookeeper
+    ports:
+        - "8081:8080"
+
+  zoo1:
+    image: zookeeper:latest
+#    network_mode: host
+    restart: always
+    hostname: zoo1
+    ports:
+      - "2181:2181"
+      - "2888:2888"
+      - "3888:3888"
+    networks:
+        - zookeeper
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_SERVERS: zoo1:2888:3888 zoo2:2888:3888 zoo3:2888:3888
+      ZOO_STANDALONE_ENABLED: true
+      ZOO_ADMINSERVER_ENABLED: true
+      ZOO_TICK_TIME: 2000
+      ZOO_INIT_LIMIT: 5
+      ZOO_SYNC_LIMIT: 2
+    volumes:
+#      - zk_data1:/data
+#      - dlog1:/datalog
+      - ./zk1/data:/var/lib/zookeeper/data
+      - ./zk1/datalog:/var/lib/zookeeper/datalog
+#
+#  zoo2:
+#    image: zookeeper:latest
+##    network_mode: host
+#    restart: always
+#    hostname: zoo2
+#    ports:
+#      - "2182:2181"  # Different client port!
+#      - "2889:2888"
+#      - "3889:3888"
+#    networks:
+#        - zookeeper
+#    environment:
+#      ZOO_MY_ID: 2
+#      ZOO_SERVERS: zoo1:2888:3888 zoo2:2888:3888 zoo3:2888:3888
+#      ZOO_STANDALONE_ENABLED: true
+#      ZOO_ADMINSERVER_ENABLED: true
+#      ZOO_TICK_TIME: 2000
+#      ZOO_INIT_LIMIT: 5
+#      ZOO_SYNC_LIMIT: 2
+#    volumes:
+##      - zk_data2:/data
+##      - dlog2:/datalog
+#      - ./zk2/data:/var/lib/zookeeper/data
+#      - ./zk2/datalog:/var/lib/zookeeper/datalog
+#
+#  zoo3:
+#    image: zookeeper:latest
+##    network_mode: host
+#    restart: always
+#    hostname: zoo3
+#    ports:
+#      - "2183:2181"  # Different client port!
+#      - "2890:2888"
+#      - "3890:3888"
+#    networks:
+#        - zookeeper
+#    environment:
+#      ZOO_MY_ID: 3
+#      ZOO_SERVERS: zoo1:2888:3888 zoo2:2888:3888 zoo3:2888:3888
+#      ZOO_STANDALONE_ENABLED: true
+#      ZOO_ADMINSERVER_ENABLED: true
+#      ZOO_TICK_TIME: 2000
+#      ZOO_INIT_LIMIT: 5
+#      ZOO_SYNC_LIMIT: 2
+#    volumes:
+##      - zk_data3:/data
+##      - dlog3:/datalog
+#      - ./zk3/data:/var/lib/zookeeper/data
+#      - ./zk3/datalog:/var/lib/zookeeper/datalog
+networks:
+  zookeeper:
+#    driver: bridge
+
+
+
+
+
+
+
+#networks:
+#  testnet:
+##    driver: bridge
