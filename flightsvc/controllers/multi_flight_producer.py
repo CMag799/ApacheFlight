@@ -3,6 +3,8 @@ import pyarrow.flight as flight
 import argparse
 import ast
 import threading
+import multiprocessing
+import platform
 import time
 import logging
 
@@ -105,7 +107,7 @@ class FlightServer(flight.FlightServerBase):
         key = FlightServer.descriptor_to_key(descriptor)
         log.info(f'adding key: {key}')
         self.flights[key] = reader.read_all()
-        # log.info(self.flights[key])
+        log.info(f'{key} has {self.flights[key].num_rows} rows and {self.flights[key].num_columns} columns')
 
     def do_get(self, context, ticket):
         key = ast.literal_eval(ticket.ticket.decode())
@@ -144,73 +146,140 @@ def start_producer(location, registry_address):
     server = FlightServer(location=location, registry_address=registry_address)
     server.connect_to_zookeeper()
 
-    log.info(f'serving on: {location}')
+    log.info(f'starting producer: {location}')
     server.serve()
 
 
-def instantiate_producers():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--host", type=str, default="localhost",
-                        help="Address or hostname to listen on")
-    parser.add_argument("--port", type=int, default=5005,
-                        help="Port number to listen on")
-    parser.add_argument("--tls", nargs=2, default=None,
-                        metavar=('CERTFILE', 'KEYFILE'),
-                        help="Enable transport-level security")
-    parser.add_argument("--verify_client", type=bool, default=False,
-                        help="enable mutual TLS and verify the client if True")
-
-    args = parser.parse_args()
-    tls_certificates = []
-    scheme = "grpc+tcp"
-    if args.tls:
-        scheme = "grpc+tls"
-        with open(args.tls[0], "rb") as cert_file:
-            tls_cert_chain = cert_file.read()
-        with open(args.tls[1], "rb") as key_file:
-            tls_private_key = key_file.read()
-        tls_certificates.append((tls_cert_chain, tls_private_key))
-
-    location = "{}://{}:{}".format(scheme, args.host, args.port)
-
-    # server = FlightServer(args.host, location, tls_certificates=tls_certificates, verify_client=args.verify_client)
-    # log.info(f'serving on: {location}')
-    # server.serve()
-
-    import multiprocessing
-    registry_address = "zoo1:2181,zoo2:2182,zoo3:2183"
-    registry_address = "localhost:2181,localhost:2182,localhost:2183"
-
-    import platform
-    if platform.system() == "Windows":
-        registry_address = "localhost:2181"
-        producer_locations = [
-            'grpc+tcp://localhost:50051',
-            # 'grpc+tcp://localhost:50052',
-            # 'grpc+tcp://localhost:50053',
-        ]
-    else:
-        registry_address = "zoo1:2181"
-        producer_locations = [
-            'grpc+tcp://localhost:50051',
-            # 'grpc+tcp://localhost:50052',
-            # 'grpc+tcp://localhost:50053',
-        ]
+# def start_server(host, location, tls_certificates, verify_client):
+#     rpc_server = FlightServer(host, location, tls_certificates=tls_certificates, verify_client=verify_client)
+#     log.info(f'starting server: {location}')
+#     rpc_server.serve()
 
 
 
-    start_producer(producer_locations[0], registry_address)
+def start_producers(**kwargs):
+    try:
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--host", type=str, default="localhost",
+                            help="Address or hostname to listen on")
+        parser.add_argument("--port", type=int, default=5005,
+                            help="Port number to listen on")
+        parser.add_argument("--tls", nargs=2, default=None,
+                            metavar=('CERTFILE', 'KEYFILE'),
+                            help="Enable transport-level security")
+        parser.add_argument("--verify_client", type=bool, default=False,
+                            help="enable mutual TLS and verify the client if True")
 
-    # processes = []
-    # for pl in producer_locations:
-    #     p = multiprocessing.Process(target=start_producer, args=(pl, registry_address))
-    #     processes.append(p)
-    #     p.start()
+        args = parser.parse_args()
+        args.host = kwargs.get("host", args.host)
+        args.port = kwargs.get("port", args.port)
 
-    # rpc_server = FlightServer(args.host, location, tls_certificates=tls_certificates, verify_client=args.verify_client)
-    # rpc_server.serve()
+        tls_certificates = []
+        scheme = "grpc+tcp"
+        if args.tls:
+            scheme = "grpc+tls"
+            with open(args.tls[0], "rb") as cert_file:
+                tls_cert_chain = cert_file.read()
+            with open(args.tls[1], "rb") as key_file:
+                tls_private_key = key_file.read()
+            tls_certificates.append((tls_cert_chain, tls_private_key))
 
-    return {}, 200
+        location = "{}://{}:{}".format(scheme, args.host, args.port)
+
+        # server = FlightServer(args.host, location, tls_certificates=tls_certificates, verify_client=args.verify_client)
+        # log.info(f'serving on: {location}')
+        # server.serve()
+
+        registry_address = "zoo1:2181,zoo2:2182,zoo3:2183"
+        registry_address = "localhost:2181,localhost:2182,localhost:2183"
+
+        if platform.system() == "Windows":
+            registry_address = "localhost:2181"
+            producer_locations = [
+                'grpc+tcp://localhost:50051',
+                # 'grpc+tcp://localhost:50052',
+                # 'grpc+tcp://localhost:50053',
+
+            ]
+        else:
+            registry_address = "zoo1:2181"
+            producer_locations = [
+                # 'grpc+tcp://localhost:50051',
+                # # 'grpc+tcp://localhost:50052',
+                # # 'grpc+tcp://localhost:50053',
+
+                'grpc+tcp://0.0.0.0:50051',
+                # 'grpc+tcp://0.0.0.0:50052',
+                # 'grpc+tcp://0.0.0.0:50053',
+            ]
+
+
+        # start producers
+        start_producer(producer_locations[0], registry_address)
+        #
+        # processes = []
+        # for pl in producer_locations:
+        #     p = multiprocessing.Process(target=start_producer, args=(pl, registry_address))
+        #     processes.append(p)
+        #     p.start()
+
+
+        # # start flight server
+        # # p = multiprocessing.Process(target=start_server, args=(args.host, location, tls_certificates, args.verify_client))
+        # # processes.append(p)
+        # # p.start()
+        #
+        # rpc_server = FlightServer(args.host, location, tls_certificates=tls_certificates, verify_client=args.verify_client)
+        # rpc_server.serve()
+
+        return {f"started producers: {producer_locations}"}, 200
+    except Exception as e:
+        import traceback
+        log.error(traceback.format_exc())
+        return {"error": str(e)}, 500
+
+
+def start_server(**kwargs):
+    try:
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--host", type=str, default="localhost",
+                            help="Address or hostname to listen on")
+        parser.add_argument("--port", type=int, default=5005,
+                            help="Port number to listen on")
+        parser.add_argument("--tls", nargs=2, default=None,
+                            metavar=('CERTFILE', 'KEYFILE'),
+                            help="Enable transport-level security")
+        parser.add_argument("--verify_client", type=bool, default=False,
+                            help="enable mutual TLS and verify the client if True")
+
+        args = parser.parse_args()
+        args.host = kwargs.get("host", args.host)
+        args.port = kwargs.get("port", args.port)
+
+        tls_certificates = []
+        scheme = "grpc+tcp"
+        if args.tls:
+            scheme = "grpc+tls"
+            with open(args.tls[0], "rb") as cert_file:
+                tls_cert_chain = cert_file.read()
+            with open(args.tls[1], "rb") as key_file:
+                tls_private_key = key_file.read()
+            tls_certificates.append((tls_cert_chain, tls_private_key))
+
+        location = "{}://{}:{}".format(scheme, args.host, args.port)
+
+        # start flight server
+        rpc_server = FlightServer(args.host, location, tls_certificates=tls_certificates,
+                                  verify_client=args.verify_client)
+        log.info(f'starting server: {location}')
+        rpc_server.serve()
+
+        return {f"started server: {location}"}, 200
+    except Exception as e:
+        import traceback
+        log.error(traceback.format_exc())
+        return {"error": str(e)}, 500
+
 
 if __name__ == "__main__":
-    instantiate_producers()
+    start_producers()
